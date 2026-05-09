@@ -132,6 +132,7 @@ It includes:
 - `X25519Party`
 - public key generation
 - shared secret derivation
+- all-zero shared-secret rejection at the high-level protocol layer
 
 ### Demo: `demo.py`
 
@@ -176,13 +177,14 @@ The negative tests check that invalid or incorrect cases are handled properly:
 - invalid public key length
 - private key is not bytes
 - public key is not bytes
+- all-zero shared-secret rejection
 
 ### Current test status
 
-The current test suite contains 10 tests and passes successfully.
+The current test suite contains 11 tests and passes successfully.
 
 ```text
-10 passed
+11 passed
 ```
 
 ## Performance
@@ -260,13 +262,3 @@ A complete protocol normally also includes:
 - no symmetric encryption step
 - no complete secure messaging protocol
 
-### Future work
-
-Possible extensions:
-
-- add HKDF after shared-secret derivation
-- derive an AES or ChaCha20 key from the shared secret
-- compare results against a production cryptographic library
-- add all-zero shared-secret rejection at the protocol layer
-- implement a simple authenticated handshake
-- add more edge-case tests

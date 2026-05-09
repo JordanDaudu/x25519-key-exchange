@@ -148,6 +148,7 @@ The tests should show:
 - wrong public key behavior
 - invalid key length handling
 - invalid input type handling
+- all-zero shared-secret rejection for invalid or low-order public inputs
 
 The benchmark should report:
 

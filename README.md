@@ -222,7 +222,7 @@ pytest
 Current test suite:
 
 ```text
-10 passed
+11 passed
 ```
 
 The tests cover:
@@ -234,6 +234,7 @@ The tests cover:
 - invalid public key length
 - invalid private key type
 - invalid public key type
+- all-zero shared-secret rejection for invalid or unsafe public inputs
 
 ---
 
@@ -315,6 +316,7 @@ Implemented manually:
 - conversion from projective coordinates back to affine form
 - public key generation
 - shared-secret derivation
+- At the high-level key exchange layer, the implementation rejects all-zero shared secrets produced by invalid or unsafe public inputs.
 
 No cryptographic library is used to perform the X25519 operation.
 

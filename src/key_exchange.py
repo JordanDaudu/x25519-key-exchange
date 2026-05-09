@@ -24,6 +24,8 @@ import os
 
 from src.x25519 import KEY_SIZE, generate_public_key, x25519
 
+ALL_ZERO_SHARED_SECRET = bytes(KEY_SIZE)
+
 
 # ---------------------------------------------------------------------------
 # Private key generation
@@ -98,7 +100,7 @@ class X25519Party:
 
         self.public_key = generate_public_key(self.private_key)
 
-    def derive_shared_secret(self, other_public_key: bytes) -> bytes:
+    def derive_shared_secret(self, other_public_key: bytes, reject_all_zero: bool = True) -> bytes:
         """
         Derive a shared secret using another party's public key.
 
@@ -107,6 +109,10 @@ class X25519Party:
         Args:
             other_public_key:
                 The 32-byte public key received from the other party.
+
+            reject_all_zero:
+                If True, reject an all-zero shared secret. This is enabled by default
+                because an all-zero result can indicate an invalid or unsafe public input.
 
         Returns:
             A 32-byte shared secret.
@@ -119,5 +125,14 @@ class X25519Party:
                 bob_secret = bob.derive_shared_secret(alice.public_key)
 
             The two secrets should be equal.
+
+        If reject_all_zero is enabled, an all-zero shared secret is rejected.
+        This protects the high-level exchange flow from invalid or low-order
+        public inputs that produce a weak shared secret.
         """
-        return x25519(self.private_key, other_public_key)
+        shared_secret = x25519(self.private_key, other_public_key)
+
+        if reject_all_zero and shared_secret == ALL_ZERO_SHARED_SECRET:
+            raise ValueError("Derived shared secret is all-zero and was rejected")
+
+        return shared_secret

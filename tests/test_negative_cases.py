@@ -9,6 +9,7 @@ These tests check:
 - invalid private key length
 - invalid public key length
 - invalid input types
+- all-zero shared-secret rejection
 """
 
 import os
@@ -76,3 +77,19 @@ def test_public_key_must_be_bytes():
 
     with pytest.raises(TypeError, match="public_key"):
         x25519(valid_private_key, invalid_public_key)
+
+
+def test_all_zero_shared_secret_is_rejected_by_high_level_protocol():
+    """
+    The low-level x25519() primitive may compute an all-zero result for certain
+    invalid public inputs.
+
+    The high-level key exchange wrapper rejects this because an all-zero shared
+    secret is not safe to use as a session secret.
+    """
+    alice = X25519Party("Alice")
+
+    all_zero_public_key = bytes(KEY_SIZE)
+
+    with pytest.raises(ValueError, match="all-zero"):
+        alice.derive_shared_secret(all_zero_public_key)
