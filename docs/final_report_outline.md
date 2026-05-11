@@ -30,7 +30,9 @@ Each side uses its own private key and the other side's public key.
 Both derive the same shared secret.
 ```
 
-The introduction should also explain that X25519 is not an encryption algorithm by itself. It is a key exchange primitive. In real systems, the shared secret is usually passed into a key derivation function and then used with a symmetric cipher such as AES or ChaCha20.
+The project also includes a multi-terminal secure chat demo. In this demo, different users can run in separate terminal processes, connect to a relay server, choose who they want to communicate with, exchange X25519 public keys, derive a shared session key, and continue sending encrypted messages until one side disconnects.
+
+X25519 is not an encryption algorithm by itself. It is a key exchange primitive. In the chat demo, the X25519 shared secret is passed through HKDF-SHA256, and the derived session key is then used with AES-GCM to encrypt and authenticate messages.
 
 ## Theoretical Background
 
@@ -91,6 +93,12 @@ An attacker may see the public keys, but should not be able to efficiently compu
 ```text
 src/x25519.py
 src/key_exchange.py
+src/protocol.py
+src/secure_message.py
+src/session.py
+src/network.py
+server.py
+client.py
 demo.py
 benchmark.py
 tests/
@@ -134,9 +142,46 @@ It includes:
 - shared secret derivation
 - all-zero shared-secret rejection at the high-level protocol layer
 
+### Multi-terminal secure chat
+
+The networked demo adds a practical protocol layer around the X25519 primitive:
+
+- `server.py` runs a relay server.
+- `client.py` runs an interactive terminal client.
+- `src/network.py` sends JSON messages over TCP.
+- `src/protocol.py` defines message formats and validation.
+- `src/session.py` stores one pairwise secure session.
+- `src/secure_message.py` derives the AES-GCM session key and encrypts/decrypts messages.
+
+The server only forwards messages. It never receives private keys, shared secrets, session keys, or plaintext chat messages.
+
+### Multi-user flow
+
+```text
+1. Alice, Bob, and X each open separate terminals.
+2. All clients connect to the relay server.
+3. Alice can type /connect Bob.
+4. Bob can type /accept Alice.
+5. Both sides exchange X25519 public keys through the server.
+6. Both sides derive the same shared secret.
+7. Both sides derive the same AES-GCM session key.
+8. Alice and Bob can continue sending encrypted messages.
+9. The session remains active until one side disconnects.
+```
+
+The system supports multiple pairwise sessions, for example:
+
+```text
+Alice <-> Bob
+Bob   <-> X
+Alice <-> X
+```
+
+Each pair receives a separate X25519 shared secret and a separate symmetric session key.
+
 ### Demo: `demo.py`
 
-The demo shows a complete Alice/Bob key exchange.
+The simple demo shows a complete Alice/Bob key exchange in a single process.
 
 It prints:
 
@@ -155,6 +200,8 @@ The project uses:
 - `os` for random byte generation
 - `pytest` for tests
 - `time` and `statistics` for benchmarking
+- `socket` and `socketserver` for the terminal communication demo
+- `cryptography` for HKDF-SHA256 and AES-GCM after the X25519 shared secret is derived
 
 No cryptographic library is used to perform X25519.
 
@@ -179,12 +226,26 @@ The negative tests check that invalid or incorrect cases are handled properly:
 - public key is not bytes
 - all-zero shared-secret rejection
 
+### Protocol and secure-message tests
+
+Additional tests check the new terminal-chat layer:
+
+- username validation
+- public-key hex validation
+- HKDF session-key derivation
+- session fingerprint agreement
+- AES-GCM encryption/decryption
+- tampered ciphertext rejection
+- wrong-key rejection
+- empty and Unicode messages
+- pairwise `SecureSession` establishment
+
 ### Current test status
 
-The current test suite contains 11 tests and passes successfully.
+The current test suite contains 26 tests and passes successfully.
 
 ```text
-11 passed
+26 passed
 ```
 
 ## Performance
@@ -251,14 +312,29 @@ A complete protocol normally also includes:
 - message integrity
 - replay protection
 
+The updated demo now includes transcript-bound session-key derivation and AES-GCM message encryption. It still does not include full peer authentication.
+
+### Man-in-the-middle concern
+
+Because the demo does not authenticate identities, a malicious relay could replace public keys and create separate shared secrets with each side.
+
+The client prints a session fingerprint so Alice and Bob can manually compare it through a trusted channel. This is useful for demonstration, but a production system would need real authentication such as certificates, digital signatures, a pre-shared key, or a PAKE.
+
 ## Limitations and Future Work
 
 ### Limitations
 
 - educational implementation only
 - not constant-time in Python
-- no authentication layer
-- no KDF step
-- no symmetric encryption step
-- no complete secure messaging protocol
+- no full identity authentication layer
+- no persistent accounts
+- no replay window or message numbering
+- no group chat; only pairwise secure sessions
 
+### Future work
+
+- add digital signatures to authenticate public keys
+- add message sequence numbers for replay protection
+- add persistent contacts / trusted fingerprints
+- add a simple GUI
+- add group-key agreement as a separate advanced extension
