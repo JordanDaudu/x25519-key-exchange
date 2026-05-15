@@ -23,6 +23,8 @@ The newest version also includes a small relay server and interactive clients so
 - [Run the Simple Demo](#run-the-simple-demo)
 - [Run the Multi-Terminal Secure Chat](#run-the-multi-terminal-secure-chat)
 - [Secure Chat Commands](#secure-chat-commands)
+- [Run the GUI Server](#run-the-gui-server)
+- [Run the GUI Client](#run-the-gui-client)
 - [Run the Tests](#run-the-tests)
 - [Run the Benchmark](#run-the-benchmark)
 - [Testing Strategy](#testing-strategy)
@@ -105,8 +107,11 @@ x25519-key-exchange/
 │   ├── interim_report_outline.md
 │   └── references.md
 │
-├── server.py                  # multi-user relay server
-├── client.py                  # interactive secure chat client
+├── server.py                  # multi-user relay server (unchanged)
+├── client.py                  # terminal secure chat client (unchanged)
+├── gui_server.py              # Tkinter GUI server with live traffic monitor
+├── gui_client.py              # GUI-compatible client core (callbacks, no print)
+├── gui_app.py                 # Tkinter GUI client application
 ├── benchmark.py
 ├── demo.py
 ├── requirements.txt
@@ -335,6 +340,132 @@ A session continues until one side uses `/disconnect <name>`, exits with `/quit`
 
 ---
 
+
+
+## Run the GUI Server
+
+A graphical server is also available. It shows every message the server
+relays in real time, making it ideal for a live demo or graded presentation.
+
+```bash
+python gui_server.py
+```
+
+Click **▶ Start Server** to begin listening. The terminal server (`server.py`)
+and GUI server are functionally identical — all clients are compatible with both.
+
+### What the GUI server displays
+
+| Panel | Content |
+|-------|---------|
+| **Server Control** | Bind address, port, Start/Stop buttons, running status badge |
+| **Live Statistics** | Total connections, active clients, public keys relayed, messages forwarded |
+| **Connected Clients** | Live list of registered usernames |
+| **Key Exchange Pairs** | Active pairs currently in a key exchange handshake |
+| **What This Server Never Sees** | Educational reminder: no private keys, no shared secrets, no plaintext |
+| **Message Traffic** | Color-coded log of every forwarded message — type, sender→receiver, payload description |
+| **Server Event Log** | Timestamped connect / disconnect / error events |
+
+### Message Traffic color coding
+
+| Color | Message type | Meaning |
+|-------|-------------|---------|
+| Amber | `chat_request` | Alice asked Bob to start a key exchange |
+| Green | `chat_accept` | Bob accepted the request |
+| Red | `chat_reject` | Bob rejected the request |
+| Blue | `public_key` | A 32-byte X25519 public key was relayed (server cannot use it) |
+| Purple | `encrypted_message` | An AES-GCM ciphertext was relayed (server cannot decrypt it) |
+| Dim | `session_disconnect` | One side closed the session |
+
+### Architecture note
+
+`gui_server.py` adds two subclasses without modifying `server.py`:
+
+- **`ObservableChatServer`** — overrides `register_client` and `unregister_client`
+  to fire callbacks, and adds `record_forwarded()` called on every relay event.
+- **`ObservableRequestHandler`** — overrides `forward_to_peer` and `handle_register`
+  to route events through the callbacks instead of printing to stdout.
+
+`server.py` is completely untouched.
+
+---
+## Run the GUI Client
+
+The GUI client provides a graphical interface on top of the same server and cryptographic logic.
+It does not replace the terminal client — both can be used simultaneously.
+
+### Dependencies
+
+The GUI uses **Tkinter**, which is included with Python. No extra packages are needed beyond the existing `requirements.txt`.
+
+### Quick Start
+
+**Step 1 — Start the server** (same as the terminal version):
+
+```bash
+python server.py --host 127.0.0.1 --port 5000
+```
+
+**Step 2 — Open Alice's GUI window:**
+
+```bash
+python gui_app.py
+```
+
+In the Connection section, enter `Alice` as the username and click **Connect to Server**.
+
+**Step 3 — Open Bob's GUI window** (in a separate terminal):
+
+```bash
+python gui_app.py
+```
+
+Enter `Bob` as the username and click **Connect to Server**.
+
+Both clients will appear in each other's **Connected Clients** list automatically.
+
+### Alice and Bob Key Exchange Demo
+
+| Step | Alice does | Bob does |
+|------|-----------|---------|
+| 1 | Selects `Bob` in the Connected Clients list | — |
+| 2 | Clicks **⇄ Start Key Exchange** | — |
+| 3 | — | Bob's Event Log shows the incoming request. Bob selects Alice, clicks **✓ Accept Request** |
+| 4 | Alice's Key Exchange Status shows "Handshake in progress" | Bob sends his public key automatically |
+| 5 | Alice's GUI shows "Shared secret derived successfully" + fingerprint | Bob's GUI shows the same fingerprint |
+| 6 | Chat is unlocked — Alice types a message and clicks Send | Bob sees Alice's decrypted message |
+
+### How to Verify Both Sides Derive the Same Shared Secret
+
+After the key exchange completes, both Alice and Bob see a **Fingerprint** value in the Key Exchange Status section.
+This fingerprint is a short hash of the derived session key.
+
+**If Alice and Bob's fingerprints match → the shared secret is identical on both sides.**
+
+The fingerprint is intentionally short and readable so it can be compared verbally or visually during a demo.
+It is not a secret itself — it is a verification tool.
+
+### GUI Sections Explained
+
+| Section | What it shows |
+|---------|--------------|
+| **Connection** | Username, server address, Connect/Disconnect, connection status |
+| **My Key Information** | Your local X25519 public key for the selected session |
+| **Connected Clients** | Live list of other online users; double-click or click Start Key Exchange |
+| **Key Exchange Status** | Peer's public key, shared secret confirmation, fingerprint, session state |
+| **Secure Chat** | Message history + send box (locked until key exchange completes) |
+| **Event Log** | Timestamped stream of all protocol events |
+
+### Architecture Note
+
+The GUI is implemented in two files:
+
+- **`gui_client.py`** — networking/crypto core, refactored from `client.py` to use callbacks instead of `print()`. Imports the same `src/` modules unchanged.
+- **`gui_app.py`** — Tkinter GUI that registers the callbacks and updates the interface.
+
+The relay `server.py` is completely unchanged. Terminal clients and GUI clients can connect to the same server simultaneously.
+
+---
 ## Run the Tests
 
 ```bash
