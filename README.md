@@ -112,8 +112,8 @@ x25519-key-exchange/
 │
 ├── assets/
 │   ├── X25519-Banner.png
-│   ├── gui-server-demo.png
-│   └── gui-client-demo.png
+│   ├── gui_server_app.png
+│   └── gui_client_app.png
 │
 ├── src/
 │   ├── x25519.py              # manual X25519 core
